@@ -1,12 +1,23 @@
 import { description, frame } from './h264.test-fixtures';
 import http from 'node:http';
 import { once } from 'node:events';
-import { afterEach, describe, expect, it } from 'vitest';
+import { Agent, getGlobalDispatcher, setGlobalDispatcher } from 'undici';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { WebSocket, WebSocketServer } from 'ws';
 import { createSimulatorGateway } from './gateway';
 import { LocalPreviewProxyManager } from '@/preview/local-preview-proxy';
+import { previewTestLookup } from '@/preview/preview-test-lookup';
 import type { SessionId } from '@lody/shared';
 import type { SimulatorHostControl } from './host-controls';
+
+const previousDispatcher = getGlobalDispatcher();
+const viewerDispatcher = new Agent({ connect: { lookup: previewTestLookup } });
+beforeAll(() => setGlobalDispatcher(viewerDispatcher));
+afterAll(async () => {
+  setGlobalDispatcher(previousDispatcher);
+  await viewerDispatcher.close();
+});
+
 const cleanups: Array<() => Promise<unknown>> = [];
 async function waitForGatewayHandshake(native: WebSocket) {
   // The server's connection event precedes the gateway receiving the upgrade.
@@ -149,7 +160,7 @@ describe('simulator media boundary', () => {
           native.once('message', (data) => resolve(JSON.parse(String(data))));
         });
       });
-      const client = new WebSocket(url);
+      const client = new WebSocket(url, { lookup: previewTestLookup });
       peers.push(client);
       cleanups.push(async () => {
         client.terminate();
@@ -170,7 +181,7 @@ describe('simulator media boundary', () => {
   it('derives native scale from the bounded viewport and denies forged receiver credit', async () => {
     const f = await setup(undefined, undefined, true);
     const incoming = once(f.upstream, 'connection');
-    const client = new WebSocket(f.stream);
+    const client = new WebSocket(f.stream, { lookup: previewTestLookup });
     cleanups.push(async () => {
       client.terminate();
     });
@@ -331,7 +342,7 @@ describe('simulator media boundary', () => {
   it('forwards only validated touches to the bound device, never counts video as activity', async () => {
     const f = await setup();
     const incoming = once(f.upstream, 'connection');
-    const client = new WebSocket(f.stream);
+    const client = new WebSocket(f.stream, { lookup: previewTestLookup });
     cleanups.push(async () => {
       client.terminate();
     });
@@ -372,7 +383,7 @@ describe('simulator media boundary', () => {
     async (reason) => {
       const f = await setup();
       const incoming = once(f.upstream, 'connection');
-      const client = new WebSocket(f.stream);
+      const client = new WebSocket(f.stream, { lookup: previewTestLookup });
       cleanups.push(async () => {
         client.terminate();
       });
@@ -404,7 +415,7 @@ describe('simulator media boundary', () => {
   it('forwards bottom-edge gestures and preserves their edge during disconnect cleanup', async () => {
     const f = await setup();
     const incoming = once(f.upstream, 'connection');
-    const client = new WebSocket(f.stream);
+    const client = new WebSocket(f.stream, { lookup: previewTestLookup });
     cleanups.push(async () => {
       client.terminate();
     });
@@ -436,7 +447,7 @@ describe('simulator media boundary', () => {
   it.each(['outside-band', 'change-edge'])('rejects invalid edge input: %s', async (scenario) => {
     const f = await setup();
     const incoming = once(f.upstream, 'connection');
-    const client = new WebSocket(f.stream);
+    const client = new WebSocket(f.stream, { lookup: previewTestLookup });
     cleanups.push(async () => {
       client.terminate();
     });
@@ -472,7 +483,7 @@ describe('simulator media boundary', () => {
   it('revocation rejects frames and tears down the stream', async () => {
     const f = await setup();
     const incoming = once(f.upstream, 'connection');
-    const client = new WebSocket(f.stream);
+    const client = new WebSocket(f.stream, { lookup: previewTestLookup });
     cleanups.push(async () => {
       client.terminate();
     });
@@ -492,7 +503,7 @@ describe('H.264 gateway negotiation', () => {
     const f = await setup(undefined, undefined, true);
     f.stream.searchParams.set('codec', 'h264');
     const incoming = once(f.upstream, 'connection');
-    const client = new WebSocket(f.stream);
+    const client = new WebSocket(f.stream, { lookup: previewTestLookup });
     cleanups.push(async () => {
       client.terminate();
     });
