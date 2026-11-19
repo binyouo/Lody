@@ -685,7 +685,7 @@ export class LoroDocumentManager {
         storageAdapter: cliSqliteRepoStore.storageAdapter,
         metaDebounceCommitMs: 0,
         flockDocRetentionMs: getFlockDocRetentionMs,
-        ...(native ? { externalFlockDocs: native.flockDocs } : {}),
+        ...(native ? { externalFlockDocs: native.flockDocs, externalDocs: native.docs } : {}),
       };
       const externalMeta = nativeMeta;
       repo = await traceAsync(
@@ -706,6 +706,7 @@ export class LoroDocumentManager {
         await writeBackNativeWorkspaceMeta(
           workspaceId,
           createdRepo,
+          cliSqliteRepoStore.storageAdapter,
           cliSqliteRepoStore.dbPath,
           logger
         ).catch((error: unknown) =>
