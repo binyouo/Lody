@@ -58,7 +58,10 @@ import {
   type RepoRoomSubscription,
   type RepoWatchHandle,
 } from 'loro-repo';
-import { openRendererNativeWorkspaceMeta } from './native-workspace-meta';
+import {
+  createRendererNativeFlockDocs,
+  openRendererNativeWorkspaceMeta,
+} from './native-workspace-meta';
 import { createWorkspaceRepoStorage } from './workspace-repo-storage';
 import {
   reportWorkspaceCloseFailure,
@@ -624,7 +627,10 @@ export async function createWorkspaceRuntime(deps: RuntimeDeps): Promise<Workspa
         )
       : null;
   const repo = nativeMeta
-    ? await LoroRepo.createWithExternalMetadata(repoOptions, nativeMeta)
+    ? await LoroRepo.createWithExternalMetadata(
+        { ...repoOptions, externalFlockDocs: createRendererNativeFlockDocs(deps.workspaceId) },
+        nativeMeta
+      )
     : await LoroRepo.create(repoOptions);
   // Bound to this replica's immutable account/workspace/content admission.
   // Cloud adapter replacement must not renew its incomplete-recovery budget.
